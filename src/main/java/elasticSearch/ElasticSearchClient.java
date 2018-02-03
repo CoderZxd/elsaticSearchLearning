@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
@@ -15,13 +16,13 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkProcessor.Builder;
 import org.elasticsearch.action.bulk.BulkProcessor.Listener;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
@@ -29,6 +30,12 @@ import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.shard.ShardId;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.SearchShardTarget;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
 /**
@@ -119,7 +126,7 @@ public class ElasticSearchClient {
 		}
 		return false;
 	}
-	public static void main(String[] args) throws IOException{
+	public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
 		ElasticSearchClient.getAllindices();
 		System.out.println(ElasticSearchClient.deleteIndex("student"));
 		ElasticSearchClient.getAllindices();
@@ -148,8 +155,31 @@ public class ElasticSearchClient {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		ElasticSearchClient.search();
 	}
-	
+
+	public static void search() throws ExecutionException, InterruptedException {
+		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+		searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+		searchSourceBuilder.from(1000).size(10);
+		SearchRequest searchRequest = new SearchRequest();
+		searchRequest.indices("student").types("collage").source(searchSourceBuilder);
+		SearchResponse searchResponse = ElasticSearchClient.newClient().search(searchRequest).get();
+		System.out.println("查询状态==================================="+searchResponse.status());
+		SearchHits searchHits = searchResponse.getHits();
+		SearchHit[] searchHitArray = searchHits.getHits();
+		for(SearchHit searchHit:searchHitArray){
+			String source= searchHit.getSourceAsString();
+			String id = searchHit.getId();
+			SearchShardTarget searchShardTarget = searchHit.getShard();
+			ShardId shardId = searchShardTarget.getShardId();
+			int shardIdId = shardId.getId();
+			String indexName = shardId.getIndexName();
+			System.out.println("id========================="+id);
+			System.out.println("shardId========================="+shardId+",indexName=============="+indexName);
+			System.out.println("source========================="+source);
+		}
+	}
 	private static String formatDateToString(Date date){
 		SimpleDateFormat sdf = new SimpleDateFormat("yyy-MM-dd HH:mm:ss.SSS");
 		return sdf.format(date);
