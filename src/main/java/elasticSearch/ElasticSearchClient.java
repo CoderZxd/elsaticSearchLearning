@@ -39,6 +39,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
 /**
+ * ElasticSearch测试
  * @author Admin
  *
  */
@@ -48,6 +49,11 @@ public class ElasticSearchClient {
 	private static String elasticSearchAddress = "localhost";
 	private static String port = "9300";
 	private static BulkProcessor bulkProcessor = null;
+
+	/**
+	 * BulkProcessor 初始化
+	 * @return
+	 */
 	public static BulkProcessor initBulkProcessor(){
 		if(null == bulkProcessor){
 			bulkProcessor = BulkProcessor.builder(ElasticSearchClient.newClient(), new Listener() {
@@ -68,16 +74,27 @@ public class ElasticSearchClient {
 		}
 		return bulkProcessor;
 	}
+
+	/**
+	 * 获取client
+	 * @return
+	 */
 	public static TransportClient newClient(){
 		if(null == transportClient){
 			Settings settings = Settings.builder().put("cluster.name", clusterName).build();
 			transportClient = new PreBuiltTransportClient(settings);
 			transportClient.addTransportAddress(new TransportAddress(new InetSocketAddress(elasticSearchAddress, Integer.parseInt(port))));
+			//添加集群节点2
 			transportClient.addTransportAddress(new TransportAddress(new InetSocketAddress(elasticSearchAddress, 9301)));
 			System.out.println("ElasticSearch Client初始化成功");
 		}
 		return transportClient;
 	}
+
+	/**
+	 * 获取集群下的所有索引
+	 * @return
+	 */
 	public static String[] getAllindices(){
 		String[] indices = ElasticSearchClient.newClient().admin().indices().prepareGetIndex().get().getIndices();
 		for(String index:indices){
@@ -85,6 +102,12 @@ public class ElasticSearchClient {
 		}
 		return indices;
 	}
+
+	/**
+	 * 删除指定索引
+	 * @param indexName
+	 * @return
+	 */
 	public static boolean deleteIndex(String indexName){
 		IndicesExistsRequest indicesExistsRequest = new IndicesExistsRequest(indexName);
 		IndicesExistsResponse response= ElasticSearchClient.newClient().admin().indices().exists(indicesExistsRequest).actionGet();
@@ -95,10 +118,23 @@ public class ElasticSearchClient {
 		System.out.println(indexName+"删除==========================="+(deleteIndexResponse.isAcknowledged()?"成功":"失败"));
 		return deleteIndexResponse.isAcknowledged();
 	}
+
+	/**
+	 * 判断指定索引是否存在
+	 * @param indexName
+	 * @return
+	 */
 	public static boolean isIndexExist(String indexName){
 		IndicesExistsResponse indicesExistsResponse = ElasticSearchClient.newClient().admin().indices().prepareExists(indexName).get();
 		return indicesExistsResponse.isExists();
 	}
+
+	/**
+	 * 创建索引
+	 * @param indexName
+	 * @return
+	 * @throws IOException
+	 */
 	public static boolean createIndex(String indexName) throws IOException{
 		if(ElasticSearchClient.isIndexExist(indexName)){
 			System.out.println(indexName+"已存在===========================");
@@ -112,6 +148,15 @@ public class ElasticSearchClient {
 		CreateIndexResponse createIndexResponse = ElasticSearchClient.newClient().admin().indices().prepareCreate(indexName).get();
 		return createIndexResponse.isAcknowledged();
 	}
+
+	/**
+	 * 保存相关数据到指定索引执行type下
+	 * @param indexName
+	 * @param type
+	 * @param data
+	 * @return
+	 * @throws IOException
+	 */
 	public static boolean saveToES(String indexName,String type,Object data) throws IOException{
 		if(!ElasticSearchClient.isIndexExist(indexName)){
 			if(ElasticSearchClient.createIndex(indexName)){
@@ -158,6 +203,11 @@ public class ElasticSearchClient {
 		ElasticSearchClient.search();
 	}
 
+	/**
+	 * 查询相关范围内数据(from小于10000)
+	 * @throws ExecutionException
+	 * @throws InterruptedException
+	 */
 	public static void search() throws ExecutionException, InterruptedException {
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 		searchSourceBuilder.query(QueryBuilders.matchAllQuery());
@@ -180,6 +230,12 @@ public class ElasticSearchClient {
 			System.out.println("source========================="+source);
 		}
 	}
+
+	/**
+	 * 日期转string
+	 * @param date
+	 * @return
+	 */
 	private static String formatDateToString(Date date){
 		SimpleDateFormat sdf = new SimpleDateFormat("yyy-MM-dd HH:mm:ss.SSS");
 		return sdf.format(date);
