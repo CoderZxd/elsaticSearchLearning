@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.lucene.search.Query;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
@@ -24,17 +25,24 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.QueryShardContext;
 import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.SearchShardTarget;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
@@ -210,14 +218,16 @@ public class ElasticSearchClient {
 	 */
 	public static void search() throws ExecutionException, InterruptedException {
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-		searchSourceBuilder.query(QueryBuilders.matchAllQuery());
-		searchSourceBuilder.from(1000).size(10);
+//		searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+		searchSourceBuilder.query(ElasticSearchClient.queryBuilder());
+//		searchSourceBuilder.from(1000).size(10);
 		SearchRequest searchRequest = new SearchRequest();
 		searchRequest.indices("student").types("collage").source(searchSourceBuilder);
 		SearchResponse searchResponse = ElasticSearchClient.newClient().search(searchRequest).get();
 		System.out.println("查询状态==================================="+searchResponse.status());
 		SearchHits searchHits = searchResponse.getHits();
 		SearchHit[] searchHitArray = searchHits.getHits();
+		System.out.println("总条数========================="+searchResponse.getHits().totalHits);
 		for(SearchHit searchHit:searchHitArray){
 			String source= searchHit.getSourceAsString();
 			String id = searchHit.getId();
@@ -231,6 +241,21 @@ public class ElasticSearchClient {
 		}
 	}
 
+	/**
+	 * 返回QueryBuilder
+	 * @return
+	 */
+	public static QueryBuilder queryBuilder(){
+		//字段范围查询
+//		QueryBuilder queryBuilder = QueryBuilders.rangeQuery("id").from(10000).to(10100).includeLower(false).includeUpper(true);
+		//按照过滤条件查询
+		QueryBuilder queryBuilder = QueryBuilders.boolQuery().
+				filter(QueryBuilders.termQuery("sexy","female")).
+				must(QueryBuilders.rangeQuery("id").from(10000).to(10100).includeLower(false).includeUpper(true)).
+				mustNot(QueryBuilders.termQuery("id","10091"));
+//		AggregationBuilder aggregationBuilder = AggregationBuilders.terms("sexy").field("sexy");
+		return queryBuilder;
+	}
 	/**
 	 * 日期转string
 	 * @param date
